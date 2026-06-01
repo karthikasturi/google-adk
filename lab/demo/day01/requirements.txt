@@ -1,0 +1,6 @@
+# Day 01 Demo — Python dependencies
+# Install with:  pip install -r requirements.txt
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
