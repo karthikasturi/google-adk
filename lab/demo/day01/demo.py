@@ -39,7 +39,7 @@ async def main() -> None:
     print("""
 +======================================================================+
 |           DAY 01 -- What Is an AI Agent?  (Google ADK Demo)         |
-|   Model  : google/gemini-2.0-flash-001  via OpenRouter + LiteLLM   |
+|   Model  : google/gemini-2.5-flash      via OpenRouter + LiteLLM   |
 +======================================================================+
 
   This demo walks through six scenarios that illustrate how an AI agent

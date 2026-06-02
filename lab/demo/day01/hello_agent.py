@@ -30,7 +30,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 # ── Config ─────────────────────────────────────────────────────────────────
-MODEL = "openrouter/google/gemini-2.0-flash-001"
+MODEL = "openrouter/google/gemini-2.5-flash"
 APP_NAME = "hello-adk"
 USER_ID = "user-1"
 SESSION_ID = "session-1"
