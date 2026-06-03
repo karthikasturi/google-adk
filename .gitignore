@@ -29,6 +29,9 @@ dist/
 # macOS
 .DS_Store
 
+# ADK session state directories
+.adk/
+
 # pytest / coverage
 .pytest_cache/
 .coverage
