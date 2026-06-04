@@ -12,3 +12,4 @@ asyncpg==0.30.0
 redis==5.2.1
 SQLAlchemy==2.0.36
 pytest==8.3.5
+adk-extra-services==0.1.7

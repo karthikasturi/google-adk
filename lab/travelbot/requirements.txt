@@ -9,3 +9,4 @@ psycopg2-binary==2.9.9
 asyncpg==0.30.0
 redis==5.2.1
 SQLAlchemy==2.0.36
+adk-extra-services==0.1.7

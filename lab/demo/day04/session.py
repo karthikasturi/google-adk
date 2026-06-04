@@ -24,7 +24,8 @@ import os
 import uuid
 
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService, InMemorySessionService, RedisSessionService
+from google.adk.sessions import DatabaseSessionService, InMemorySessionService
+from adk_extra_services.sessions import RedisSessionService
 
 import redis_client
 from settings import settings

@@ -18,8 +18,9 @@ from google.adk.runners import Runner
 from google.adk.sessions import (
     DatabaseSessionService,
     InMemorySessionService,
-    RedisSessionService,
 )
+
+from adk_extra_services.sessions import RedisSessionService
 
 log = logging.getLogger(__name__)
 
