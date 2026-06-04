@@ -1,15 +1,21 @@
 """
 demo.py — TravelBot evolving project runner
 ============================================
-Google ADK · LiteLLM · OpenRouter · In-memory sessions
+Google ADK · LiteLLM · OpenRouter · Session persistence (v3+)
 
-Run a specific version or step through both in order:
-    python demo.py         ← menu to pick v1 or v2
+Run a specific version or step through them in order:
+    python demo.py         ← menu to pick v1, v2, or v3
     python demo.py v1      ← jump straight to v1
     python demo.py v2      ← jump straight to v2
+    python demo.py v3      ← jump straight to v3
 
 Type  q  to quit the current REPL.
-After v1 finishes, you're offered v2 so you can see the evolution live.
+After each version finishes, you're offered the next so you can see the evolution live.
+
+V3-specific:
+    SESSION_BACKEND=memory    python demo.py v3    ← in-memory (no persistence)
+    SESSION_BACKEND=redis     python demo.py v3    ← Redis-backed sessions
+    SESSION_BACKEND=database  python demo.py v3    ← PostgreSQL (default)
 """
 
 import asyncio
@@ -68,7 +74,7 @@ _V1_GUIDE = """
 """
 
 _V2_GUIDE = """
-  TravelBot v2 — Tools + Session State
+  TravelBot v2 — Tools + Session State (in-memory)
   ──────────────────────────────────────────────────────────────────
   1  Flight status     "I'm flying on AI-204. Can you check the status?"
   2  Invalid flight    "Check flight ZZ-999."
@@ -79,6 +85,20 @@ _V2_GUIDE = """
   All prompts run in ONE session — state (name, city, flight) accumulates.
 """
 
+_V3_GUIDE = """
+  TravelBot v3 — PostgreSQL Tools + Persistent Sessions
+  ──────────────────────────────────────────────────────────────────
+  1  Booking lookup    "Check booking TB-1001 for me."
+  2  Follow-up (state) "What's the departure date?"         ← no ID needed
+  3  Flight search     "Find flights from Mumbai to London."
+  4  Cancel booking    "Cancel booking TB-1002."
+  5  Already-cancelled "Cancel TB-1003."                    ← graceful error
+  6  Session state     "What do you know about my trip?"   ← session context
+  ──────────────────────────────────────────────────────────────────
+  Requires:  docker compose up -d postgres redis
+  Session backend: SESSION_BACKEND=database|redis|memory python demo.py v3
+"""
+
 
 # ── REPL for a single version ───────────────────────────────────────────────
 
@@ -87,10 +107,14 @@ async def _run_version(version: str) -> None:
         from v1.agent import aria
         guide = _V1_GUIDE
         label = "TravelBot v1 — Basic Agent (no tools)"
-    else:
+    elif version == "v2":
         from v2.agent import aria
         guide = _V2_GUIDE
-        label = "TravelBot v2 — Tools + Session State"
+        label = "TravelBot v2 — Tools + Session State (in-memory)"
+    else:  # v3
+        from v3.agent import aria
+        guide = _V3_GUIDE
+        label = "TravelBot v3 — PostgreSQL Tools + Persistent Sessions"
 
     from shared.session import make_runner
     runner, user_id, session_id = await make_runner(aria)
@@ -131,7 +155,7 @@ async def main() -> None:
 
     arg = sys.argv[1].lower() if len(sys.argv) > 1 else None
 
-    if arg in ("v1", "v2"):
+    if arg in ("v1", "v2", "v3"):
         await _run_version(arg)
         return
 
@@ -144,16 +168,25 @@ async def main() -> None:
   This project shows how an agent evolves across versions:
     v1 — plain LlmAgent, system prompt only (no tools)
     v2 — adds tool calling and ToolContext session state
+    v3 — upgrades to PostgreSQL tools and persistent sessions
 
-  Run a specific version:   python demo.py v1   or   python demo.py v2
+  Run a specific version:
+    python demo.py v1
+    python demo.py v2
+    python demo.py v3 (requires: docker compose up -d postgres redis)
+
+  Session backend for v3:
+    SESSION_BACKEND=memory    python demo.py v3    (no persistence)
+    SESSION_BACKEND=redis     python demo.py v3    (Redis-only)
+    SESSION_BACKEND=database  python demo.py v3    (PostgreSQL, default)
 """)
 
-    choice = input("  Start with v1 or v2? [v1/v2/q]: ").strip().lower()
+    choice = input("  Start with v1, v2, or v3? [v1/v2/v3/q]: ").strip().lower()
     if choice == "q" or choice == "":
         return
 
-    if choice not in ("v1", "v2"):
-        print("  Invalid choice. Run:  python demo.py v1  or  python demo.py v2")
+    if choice not in ("v1", "v2", "v3"):
+        print("  Invalid choice. Run:  python demo.py v1  |  v2  |  v3")
         return
 
     await _run_version(choice)
@@ -164,6 +197,17 @@ async def main() -> None:
         ).strip().lower()
         if next_choice == "y":
             await _run_version("v2")
+            next_choice = input(
+                "  Continue with v3 to see PostgreSQL + persistence? [y/n]: "
+            ).strip().lower()
+            if next_choice == "y":
+                await _run_version("v3")
+    elif choice == "v2":
+        next_choice = input(
+            "  Continue with v3 to see PostgreSQL + persistence? [y/n]: "
+        ).strip().lower()
+        if next_choice == "y":
+            await _run_version("v3")
 
 
 if __name__ == "__main__":

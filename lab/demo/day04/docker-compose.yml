@@ -1,0 +1,48 @@
+# Day 04 — TravelBot: Redis + PostgreSQL infrastructure
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Reset:  docker compose down -v   (destroys volumes + data)
+
+services:
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: travelbot-redis
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-redis_secret}
+      --appendonly yes
+      --appendfsync everysec
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: travelbot-postgres
+    environment:
+      POSTGRES_DB: ${PG_DB:-travelbot}
+      POSTGRES_USER: ${PG_USER:-travelbot}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-pg_secret}
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-travelbot} -d ${PG_DB:-travelbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
