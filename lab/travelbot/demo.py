@@ -4,18 +4,22 @@ demo.py — TravelBot evolving project runner
 Google ADK · LiteLLM · OpenRouter · Session persistence (v3+)
 
 Run a specific version or step through them in order:
-    python demo.py         ← menu to pick v1, v2, or v3
+    python demo.py         ← menu to pick v1, v2, v3, or v4
     python demo.py v1      ← jump straight to v1
     python demo.py v2      ← jump straight to v2
     python demo.py v3      ← jump straight to v3
+    python demo.py v4      ← jump straight to v4
 
 Type  q  to quit the current REPL.
 After each version finishes, you're offered the next so you can see the evolution live.
 
-V3-specific:
+V3/V4-specific:
     SESSION_BACKEND=memory    python demo.py v3    ← in-memory (no persistence)
     SESSION_BACKEND=redis     python demo.py v3    ← Redis-backed sessions
     SESSION_BACKEND=database  python demo.py v3    ← PostgreSQL (default)
+
+V4-specific (RAG knowledge base — index it once before running):
+    python -m rag.embed_catalog
 """
 
 import asyncio
@@ -99,6 +103,21 @@ _V3_GUIDE = """
   Session backend: SESSION_BACKEND=database|redis|memory python demo.py v3
 """
 
+_V4_GUIDE = """
+  TravelBot v4 — v3 + RAG Knowledge Base (destination/visa/baggage)
+  ──────────────────────────────────────────────────────────────────
+  1  Booking lookup    "Check booking TB-1001 for me."
+  2  Follow-up (state) "What's the departure date?"         ← no ID needed
+  3  Cancel booking    "Cancel booking TB-1002."
+  4  RAG — baggage     "What's the baggage allowance for an economy ticket?"
+  5  RAG — visa        "Do I need a visa to visit Dubai as an Indian passport holder?"
+  6  RAG — fallback    "What's the weather like in Reykjavik in October?"  ← honest "don't know"
+  ──────────────────────────────────────────────────────────────────
+  Requires:  docker compose up -d postgres redis
+  Index the knowledge base once:  python -m rag.embed_catalog
+  Session backend: SESSION_BACKEND=database|redis|memory python demo.py v4
+"""
+
 
 # ── REPL for a single version ───────────────────────────────────────────────
 
@@ -111,10 +130,14 @@ async def _run_version(version: str) -> None:
         from v2.agent import aria
         guide = _V2_GUIDE
         label = "TravelBot v2 — Tools + Session State (in-memory)"
-    else:  # v3
+    elif version == "v3":
         from v3.agent import aria
         guide = _V3_GUIDE
         label = "TravelBot v3 — PostgreSQL Tools + Persistent Sessions"
+    else:  # v4
+        from v4.agent import aria
+        guide = _V4_GUIDE
+        label = "TravelBot v4 — v3 + RAG Knowledge Base"
 
     from shared.session import make_runner
     runner, user_id, session_id = await make_runner(aria)
@@ -155,7 +178,7 @@ async def main() -> None:
 
     arg = sys.argv[1].lower() if len(sys.argv) > 1 else None
 
-    if arg in ("v1", "v2", "v3"):
+    if arg in ("v1", "v2", "v3", "v4"):
         await _run_version(arg)
         return
 
@@ -169,24 +192,26 @@ async def main() -> None:
     v1 — plain LlmAgent, system prompt only (no tools)
     v2 — adds tool calling and ToolContext session state
     v3 — upgrades to PostgreSQL tools and persistent sessions
+    v4 — adds a RAG knowledge base (destination/visa/baggage questions)
 
   Run a specific version:
     python demo.py v1
     python demo.py v2
     python demo.py v3 (requires: docker compose up -d postgres redis)
+    python demo.py v4 (same as v3, plus: python -m rag.embed_catalog)
 
-  Session backend for v3:
-    SESSION_BACKEND=memory    python demo.py v3    (no persistence)
-    SESSION_BACKEND=redis     python demo.py v3    (Redis-only)
-    SESSION_BACKEND=database  python demo.py v3    (PostgreSQL, default)
+  Session backend for v3/v4:
+    SESSION_BACKEND=memory    python demo.py v4    (no persistence)
+    SESSION_BACKEND=redis     python demo.py v4    (Redis-only)
+    SESSION_BACKEND=database  python demo.py v4    (PostgreSQL, default)
 """)
 
-    choice = input("  Start with v1, v2, or v3? [v1/v2/v3/q]: ").strip().lower()
+    choice = input("  Start with v1, v2, v3, or v4? [v1/v2/v3/v4/q]: ").strip().lower()
     if choice == "q" or choice == "":
         return
 
-    if choice not in ("v1", "v2", "v3"):
-        print("  Invalid choice. Run:  python demo.py v1  |  v2  |  v3")
+    if choice not in ("v1", "v2", "v3", "v4"):
+        print("  Invalid choice. Run:  python demo.py v1  |  v2  |  v3  |  v4")
         return
 
     await _run_version(choice)
@@ -202,12 +227,28 @@ async def main() -> None:
             ).strip().lower()
             if next_choice == "y":
                 await _run_version("v3")
+                next_choice = input(
+                    "  Continue with v4 to see the RAG knowledge base? [y/n]: "
+                ).strip().lower()
+                if next_choice == "y":
+                    await _run_version("v4")
     elif choice == "v2":
         next_choice = input(
             "  Continue with v3 to see PostgreSQL + persistence? [y/n]: "
         ).strip().lower()
         if next_choice == "y":
             await _run_version("v3")
+            next_choice = input(
+                "  Continue with v4 to see the RAG knowledge base? [y/n]: "
+            ).strip().lower()
+            if next_choice == "y":
+                await _run_version("v4")
+    elif choice == "v3":
+        next_choice = input(
+            "  Continue with v4 to see the RAG knowledge base? [y/n]: "
+        ).strip().lower()
+        if next_choice == "y":
+            await _run_version("v4")
 
 
 if __name__ == "__main__":

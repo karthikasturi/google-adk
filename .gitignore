@@ -32,6 +32,9 @@ dist/
 # ADK session state directories
 .adk/
 
+# Local ChromaDB vector stores (RAG knowledge base)
+chroma_db/
+
 # pytest / coverage
 .pytest_cache/
 .coverage

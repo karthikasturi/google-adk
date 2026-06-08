@@ -1,0 +1,14 @@
+# Day 05 Demo — Python dependencies
+# Semantic search & RAG over a tiny knowledge base, backed by an in-memory
+# (ephemeral) ChromaDB collection — a real vector database, no server or
+# persistence directory needed. Embeddings go through OpenRouter via
+# litellm, just like the chat model (see kb.py).
+#
+# Install:  pip install -r requirements.txt
+# Run:      python demo.py
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
+pytest==8.3.5
+chromadb==1.0.20

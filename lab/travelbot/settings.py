@@ -6,6 +6,7 @@ All service credentials from environment variables — no hardcoded secrets.
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -28,6 +29,28 @@ class Settings:
     redis_session_ttl: int = field(
         default_factory=lambda: int(os.getenv("REDIS_SESSION_TTL", "3600"))
     )
+
+    # RAG knowledge base (ChromaDB)
+    rag_persist_dir: str = field(default_factory=lambda: os.getenv("RAG_PERSIST_DIR", "chroma_db"))
+    rag_collection_name: str = field(
+        default_factory=lambda: os.getenv("RAG_COLLECTION_NAME", "travel_kb")
+    )
+    rag_embedding_model: str = field(
+        default_factory=lambda: os.getenv(
+            "RAG_EMBEDDING_MODEL", "openrouter/openai/text-embedding-3-small"
+        )
+    )
+    rag_top_k: int = field(default_factory=lambda: int(os.getenv("RAG_TOP_K", "3")))
+
+    @property
+    def rag_persist_path(self) -> Path:
+        """Absolute path to the local ChromaDB persistence directory.
+
+        Relative paths are resolved against the travelbot project root so the
+        store lands in the same place regardless of the current working directory.
+        """
+        path = Path(self.rag_persist_dir)
+        return path if path.is_absolute() else Path(__file__).parent / path
 
     @property
     def pg_dsn(self) -> str:

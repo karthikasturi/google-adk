@@ -1,6 +1,8 @@
 # TravelBot — Shared dependencies
 # v1–v2: InMemorySessionService (no DB needed)
 # v3+:   PostgreSQL + Redis for persistence
+# v3+:   ChromaDB for the local RAG knowledge base
+#        (embeddings go through OpenRouter via litellm — no extra ML deps)
 
 google-adk==2.1.0
 litellm==1.86.2
@@ -10,3 +12,4 @@ asyncpg==0.30.0
 redis==5.2.1
 SQLAlchemy==2.0.36
 adk-extra-services==0.1.7
+chromadb==1.0.20
