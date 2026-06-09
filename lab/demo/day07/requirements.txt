@@ -1,0 +1,10 @@
+# Day 07 Demo — Python dependencies
+# LiteLLM routing and fallback with Google ADK.
+# litellm.Router is bundled with litellm — no additional packages needed.
+#
+# Install:  pip install -r requirements.txt
+# Run:      python demo.py
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
