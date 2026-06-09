@@ -1,0 +1,19 @@
+# Day 06 Demo — Python dependencies
+# PDF-grounded RAG with a configurable vector backend: ChromaDB
+# (in-memory, default — same engine as Day 05) or AWS OpenSearch
+# (production-shaped, k-NN plugin). Embeddings go through OpenRouter via
+# litellm, just like the chat model. PDFs are parsed with pypdf.
+#
+# Install:  pip install -r requirements.txt
+# Run:      python demo.py
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
+pytest==8.3.5
+chromadb==1.0.20
+pypdf==6.12.2
+
+# Only required when VECTOR_BACKEND=opensearch:
+opensearch-py==3.2.0
+boto3==1.35.49
