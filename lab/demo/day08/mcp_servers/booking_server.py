@@ -1,9 +1,12 @@
 """
 booking_server.py — Booking MCP tool server
 ==============================================
-A FastMCP server exposing TravelBot's flight-booking tools over stdio.
-ADK spawns this as a subprocess via MCPToolset/StdioConnectionParams —
-see ../agent.py.
+A FastMCP server exposing TravelBot's flight-booking tools over
+Streamable HTTP. agent.py starts this as a background subprocess and
+connects to it with McpToolset/StreamableHTTPConnectionParams — unlike
+hotel_server.py, which is spawned per-toolset over stdio. The two
+transports are deliberately different so the demo shows both styles of
+MCP tool server.
 
 Tools:
   get_booking_status(booking_id)   -> quick status lookup
@@ -17,13 +20,21 @@ Tools:
 
 Run directly for local testing:
     python booking_server.py
+    # serves on http://127.0.0.1:8765/mcp by default
 """
+
+import os
 
 from mcp.server.fastmcp import FastMCP
 
 # WARNING level — keep the demo's console output free of per-request
-# "Processing request of type ..." noise from the MCP server loop.
-mcp = FastMCP("travelbot-booking", log_level="WARNING")
+# "Processing request of type ..." noise (and uvicorn's access log).
+mcp = FastMCP(
+    "travelbot-booking",
+    log_level="WARNING",
+    host=os.getenv("BOOKING_SERVER_HOST", "127.0.0.1"),
+    port=int(os.getenv("BOOKING_SERVER_PORT", "8765")),
+)
 
 # ── Mock booking data ───────────────────────────────────────────────────────
 _BOOKINGS: dict[str, dict] = {
@@ -221,4 +232,4 @@ def cancel_booking(booking_id: str, confirm: bool = False) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="streamable-http")

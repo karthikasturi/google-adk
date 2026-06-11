@@ -2,14 +2,20 @@
 agent.py — Day 08 TravelBot: MCP tool servers via FastMCP
 ============================================================
 Concept: Agents call out to small, well-scoped tool servers over MCP
-instead of having tool functions baked into the agent process.
+instead of having tool functions baked into the agent process. This demo
+deliberately mixes two MCP transports:
 
-Two MCP servers (mcp_servers/booking_server.py, mcp_servers/hotel_server.py)
-are started as stdio subprocesses and exposed to the agent as toolsets:
+  booking_toolset — mcp_servers/booking_server.py, run ONCE as a
+                     background Streamable HTTP server (its own process,
+                     listening on http://127.0.0.1:8765/mcp). A single
+                     McpToolset/HTTP client session is shared by both agents
+                     below via StreamableHTTPConnectionParams.
+                     Tools: get_booking_status, get_booking_details,
+                     list_bookings, cancel_booking
 
-  booking_toolset — get_booking_status, get_booking_details, list_bookings,
-                     cancel_booking
-  hotel_toolset   — find_hotels (normal speed)
+  hotel_toolset   — mcp_servers/hotel_server.py, spawned per-toolset as a
+                     stdio subprocess via StdioConnectionParams.
+                     Tools: find_hotels (normal speed)
 
 root_agent combines both toolsets for scenarios 1A, 2A, 3B and 4A.
 
@@ -22,16 +28,24 @@ ADK Web:
     adk web .          ← discovers root_agent automatically
 """
 
+import atexit
 import logging
 import os
+import socket
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import litellm
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+from google.adk.tools.mcp_tool import (
+    McpToolset,
+    StdioConnectionParams,
+    StreamableHTTPConnectionParams,
+)
 from mcp import StdioServerParameters
 
 # ── Silence noisy loggers (same pattern as previous days) ─────────────────
@@ -54,6 +68,46 @@ _HOTEL_SERVER = str(_SERVERS_DIR / "hotel_server.py")
 # Scenario 3A tuning — see .env.example
 _SLOW_HOTEL_DELAY_SECONDS = os.getenv("HOTEL_SEARCH_DELAY_SECONDS", "8")
 _SLOW_HOTEL_TIMEOUT_SECONDS = float(os.getenv("HOTEL_TOOL_TIMEOUT_SECONDS", "3"))
+
+# ── Booking server: Streamable HTTP, started once as a background process ──
+_BOOKING_HOST = os.getenv("BOOKING_SERVER_HOST", "127.0.0.1")
+_BOOKING_PORT = int(os.getenv("BOOKING_SERVER_PORT", "8765"))
+_BOOKING_URL = f"http://{_BOOKING_HOST}:{_BOOKING_PORT}/mcp"
+
+
+def _wait_for_port(host: str, port: int, timeout: float = 10.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise RuntimeError(f"booking_server.py did not start on {host}:{port} within {timeout}s")
+
+
+def _start_booking_server() -> subprocess.Popen:
+    proc = subprocess.Popen(
+        [sys.executable, _BOOKING_SERVER],
+        env={**os.environ, "BOOKING_SERVER_HOST": _BOOKING_HOST, "BOOKING_SERVER_PORT": str(_BOOKING_PORT)},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    _wait_for_port(_BOOKING_HOST, _BOOKING_PORT)
+    return proc
+
+
+_booking_server_process = _start_booking_server()
+
+
+def shutdown_booking_server() -> None:
+    """Stop the background booking MCP server. Safe to call more than once."""
+    if _booking_server_process.poll() is None:
+        _booking_server_process.terminate()
+        _booking_server_process.wait(timeout=5)
+
+
+atexit.register(shutdown_booking_server)
 
 
 _PERSONA = """
@@ -114,11 +168,8 @@ Cancellations (safety-critical):
 
 def _booking_toolset() -> McpToolset:
     return McpToolset(
-        connection_params=StdioConnectionParams(
-            server_params=StdioServerParameters(
-                command=sys.executable,
-                args=[_BOOKING_SERVER],
-            ),
+        connection_params=StreamableHTTPConnectionParams(
+            url=_BOOKING_URL,
             timeout=10,
         ),
     )
@@ -151,9 +202,11 @@ root_agent = LlmAgent(
 
 
 # ── Timeout-demo agent (Scenario 3A) ────────────────────────────────────────
-# Its own toolset instances so the slow hotel server doesn't share a
-# subprocess/session with the normal-speed one above.
-timeout_demo_booking_toolset = _booking_toolset()
+# Reuses the shared booking_toolset (one HTTP client session per process is
+# enough — opening a second concurrent session against the same booking
+# server here led to MCP session-setup errors). Only the hotel toolset
+# differs: its own stdio subprocess, started with HOTEL_SEARCH_DELAY_SECONDS
+# higher than its own MCP timeout so find_hotels times out.
 slow_hotel_toolset = _hotel_toolset(
     delay_seconds=_SLOW_HOTEL_DELAY_SECONDS,
     timeout=_SLOW_HOTEL_TIMEOUT_SECONDS,
@@ -164,5 +217,5 @@ timeout_demo_agent = LlmAgent(
     model=LiteLlm(model=_MODEL),
     instruction=_PERSONA,
     description="Aria with a slow hotel MCP server, for demonstrating tool-call timeout fallback.",
-    tools=[timeout_demo_booking_toolset, slow_hotel_toolset],
+    tools=[booking_toolset, slow_hotel_toolset],
 )

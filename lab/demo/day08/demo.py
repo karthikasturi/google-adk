@@ -47,9 +47,9 @@ from agent import (
     booking_toolset,
     hotel_toolset,
     root_agent,
+    shutdown_booking_server,
     slow_hotel_toolset,
     timeout_demo_agent,
-    timeout_demo_booking_toolset,
     _SLOW_HOTEL_DELAY_SECONDS,
     _SLOW_HOTEL_TIMEOUT_SECONDS,
 )
@@ -58,6 +58,10 @@ from session import make_runner
 # ── Scenario guide ───────────────────────────────────────────────────────────
 _GUIDE = """
   SCENARIO GUIDE — Day 08: TravelBot with FastMCP Tool Servers
+  ──────────────────────────────────────────────────────────────────────
+  Two MCP tool servers, two transports:
+    booking_server  → Streamable HTTP (one shared background server)
+    hotel_server    → stdio (spawned per toolset)
   ──────────────────────────────────────────────────────────────────────
   1A  Booking status   get_booking_status — single MCP tool, asks for a
                         booking reference / email if it's missing
@@ -375,8 +379,9 @@ async def main() -> None:
 
         await run_repl(*await make_runner(root_agent))
     finally:
-        for toolset in (booking_toolset, hotel_toolset, timeout_demo_booking_toolset, slow_hotel_toolset):
+        for toolset in (booking_toolset, hotel_toolset, slow_hotel_toolset):
             await toolset.close()
+        shutdown_booking_server()
 
 
 if __name__ == "__main__":
