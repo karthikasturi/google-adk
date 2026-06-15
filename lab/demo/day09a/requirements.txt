@@ -1,0 +1,11 @@
+# Day 09a Demo — Python dependencies
+# Native ADK multi-agent patterns: sub_agents routing (transfer_to_agent)
+# and Workflow graphs (sequential edges + fan-out/fan-in via JoinNode),
+# built with Google ADK + LiteLLM + OpenRouter.
+#
+# Install:  pip install -r requirements.txt
+# Run:      python demo.py
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
