@@ -1,0 +1,34 @@
+"""
+session.py — ADK session factory for Day 10a FastAPI backend
+------------------------------------------------------------
+make_runner(agent) creates a fresh ADK Runner with an isolated
+InMemorySessionService. The FastAPI backend calls this once per
+browser session and stores the result in a module-level dict.
+"""
+
+import uuid
+
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+
+APP_NAME = "day10a-travelbot-fastapi"
+
+
+def get_session_service() -> InMemorySessionService:
+    return InMemorySessionService()
+
+
+async def make_runner(agent) -> tuple[Runner, str, str]:
+    """
+    Wrap an agent in a Runner with a fresh isolated session.
+    Returns (runner, user_id, session_id).
+    """
+    session_service = get_session_service()
+    runner = Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
+
+    user_id = f"user-{uuid.uuid4().hex[:6]}"
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    await session_service.create_session(
+        app_name=APP_NAME, user_id=user_id, session_id=session_id
+    )
+    return runner, user_id, session_id
