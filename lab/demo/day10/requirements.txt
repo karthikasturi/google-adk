@@ -1,0 +1,10 @@
+# Day 10 Demo — Python dependencies
+# TravelBot Generative UI: Chainlit UI layer over Google ADK multi-agent backend.
+#
+# Install:  pip install -r requirements.txt
+# Run:      chainlit run app.py
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
+chainlit>=2.0.0
