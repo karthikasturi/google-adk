@@ -1,0 +1,14 @@
+services:
+  whisper:
+    build: .
+    ports:
+      - "8001:8001"
+    volumes:
+      - whisper-models:/models    # HF model cache — persisted between restarts
+    environment:
+      WHISPER_MODEL: small        # tiny | base | small | medium | large-v3
+      # HF_ENDPOINT: https://hf-mirror.com   # uncomment if huggingface.co is blocked
+    restart: unless-stopped
+
+volumes:
+  whisper-models:
