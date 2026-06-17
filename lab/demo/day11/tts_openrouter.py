@@ -11,7 +11,7 @@ container to parse and the sample rate is known up front. Multilingual — speak
 English, French, Hindi, etc. based on the input text. Override with
 OPENROUTER_TTS_MODEL / OPENROUTER_TTS_VOICE.
 
-Exposes the same surface as tts_piper.PiperTTS:
+Interface:
     sample_rate
     iter_pcm(text)        -> yields int16 PCM byte chunks (24 kHz mono)
     synth_array(text)     -> int16 numpy array

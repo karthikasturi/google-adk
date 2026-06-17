@@ -14,7 +14,7 @@ The hardware ends of the pipeline:
                       immediately and the interrupting utterance is captured and
                       returned, so the caller can treat it as the next turn.
 
-All capture is 16 kHz mono int16 (what webrtcvad and Whisper expect). Playback
+All capture is 16 kHz mono int16 (what webrtcvad and the OpenRouter STT model expect). Playback
 runs at the TTS sample rate on a separate output stream (full-duplex).
 """
 
@@ -126,7 +126,7 @@ class AudioIO:
         """Play streamed int16 PCM, optionally interruptible by the user's voice.
 
         Args:
-            pcm_iter:  iterable of int16 PCM byte chunks (from PiperTTS.iter_pcm).
+            pcm_iter:  iterable of int16 PCM byte chunks (from OpenRouterTTS.iter_pcm).
             sample_rate: sample rate of those chunks.
             allow_barge_in: monitor the mic and stop on sustained user speech.
 

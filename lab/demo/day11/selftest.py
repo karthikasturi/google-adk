@@ -96,7 +96,7 @@ def run(lang_keys: list[str], with_agent: bool) -> None:
         tts_s = tts.synth_to_wav(phrase, wav_path)
 
         # 2) WAV → STT
-        tr = stt.transcribe_file(wav_path, language=lang.whisper_code)
+        tr = stt.transcribe_file(wav_path, language=lang.lang_code)
         os.unlink(wav_path)
 
         sim = _similar(phrase, tr.text)

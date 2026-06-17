@@ -152,7 +152,7 @@ async def run_voice_loop(lang_key: str, allow_barge_in: bool, text_mode: bool) -
                     print(f"{_C['dim']}🎙  listening… (speak now){_C['x']}")
                     utt = audio.listen_utterance()
                 speech_end_t = utt.capture_end_t
-                tr = stt.transcribe(utt.audio, language=lang.whisper_code)
+                tr = stt.transcribe(utt.audio, language=lang.lang_code)
                 text, stt_ms, conf = tr.text, tr.latency_ms, tr.confidence
                 if not text:
                     print(f"{_C['yellow']}…didn't catch that, please repeat.{_C['x']}")

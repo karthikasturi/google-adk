@@ -3,7 +3,7 @@ agent.py — Day 11: Voice-optimised TravelBot agents (real STT/TTS pipeline)
 ============================================================================
 Same four-agent ADK structure as Day 10 (concierge → trips / support / hotel
 specialists), with instructions tuned for *spoken* output driven by a real
-faster-whisper → ADK → Piper pipeline:
+STT → ADK → TTS pipeline:
 
   - short, voice-friendly sentences (no markdown, no lists)
   - reply in the SAME language the traveller spoke (English / French / Hindi)

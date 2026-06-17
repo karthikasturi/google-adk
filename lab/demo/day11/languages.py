@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 class Language:
     key: str                 # short selector, e.g. "en"
     name: str                # human name, e.g. "English"
-    whisper_code: str        # language hint sent to the STT model
+    lang_code: str        # language hint sent to the STT model
     greeting: str            # spoken on startup
     sample_prompts: list[str] = field(default_factory=list)
 
@@ -18,7 +18,7 @@ LANGUAGES: dict[str, Language] = {
     "en": Language(
         key="en",
         name="English",
-        whisper_code="en",
+        lang_code="en",
         greeting="Hello! I'm TravelBot. Ask me about a flight, a hotel, or a trip.",
         sample_prompts=[
             "Where is my flight from Mumbai to Dubai tomorrow?",
@@ -29,7 +29,7 @@ LANGUAGES: dict[str, Language] = {
     "fr": Language(
         key="fr",
         name="French",
-        whisper_code="fr",
+        lang_code="fr",
         greeting="Bonjour ! Je suis TravelBot. Posez-moi une question sur un vol, un hôtel ou un voyage.",
         sample_prompts=[
             "Où est mon vol de Mumbai à Dubaï demain ?",
@@ -40,7 +40,7 @@ LANGUAGES: dict[str, Language] = {
     "hi": Language(
         key="hi",
         name="Hindi",
-        whisper_code="hi",
+        lang_code="hi",
         greeting="नमस्ते! मैं TravelBot हूँ। उड़ान, होटल या यात्रा के बारे में पूछें।",
         sample_prompts=[
             "कल मुंबई से दुबई की मेरी फ्लाइट कहाँ है?",
