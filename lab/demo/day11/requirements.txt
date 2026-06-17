@@ -1,0 +1,25 @@
+# Day 11 — Real-time voice TravelBot (DEFAULT: OpenRouter STT/TTS backend)
+#
+# This default backend uses your OpenRouter API key for STT *and* TTS — no
+# Hugging Face download, no local ML models. Good for networks where
+# huggingface.co is blocked.
+#
+# Install:  pip install -r requirements.txt
+# Run:      python pipeline.py            (live mic loop, --backend openrouter)
+#           python selftest.py            (mic-less latency benchmark)
+#
+# System audio libs (Debian/Ubuntu):  sudo apt-get install -y libportaudio2 ffmpeg
+#
+# For the fully-local faster-whisper + Piper backend instead, also install
+# requirements-local.txt  (needs huggingface.co reachable to fetch the models).
+
+# ── Agent backend (Google ADK, same as previous days) ───────────────────────
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
+
+# ── OpenRouter audio calls + audio capture/playback + VAD ───────────────────
+httpx>=0.27                 # STT/TTS HTTP calls to OpenRouter
+sounddevice>=0.4.6          # microphone capture + speaker playback
+webrtcvad-wheels>=2.0.10    # voice-activity detection (prebuilt wheels)
+numpy>=1.24
