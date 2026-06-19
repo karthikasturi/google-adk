@@ -1,0 +1,16 @@
+# Day 12 — OPTIONAL extras for the framework-native variants
+# (agent_native.py / demo_native.py / tracing_otel.py / eval/).
+#
+# The base requirements.txt is all you need for demo.py, chainlit_app.py,
+# and promptfoo/. Install these on top only to run the native variants:
+#
+#   pip install -r requirements-native.txt
+#
+# Note: google-adk[eval] pins a slightly older litellm than requirements.txt
+# (1.85.x vs 1.86.2). Both work with this demo; pip will adjust litellm when
+# you install this file. Re-pin with `pip install litellm==1.86.2` afterwards
+# if you want the base version back (the eval path also works on 1.86.2).
+
+google-adk[eval]==2.1.0          # AgentEvaluator + eval metrics (pulls vertexai, rouge, pandas)
+opentelemetry-sdk>=1.41          # OpenTelemetry tracer provider
+opentelemetry-exporter-otlp>=1.41  # OTLP exporter → LangSmith OTel endpoint

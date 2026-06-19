@@ -1,31 +1,53 @@
-# Day 12 — PromptFoo eval suite via Docker (no local Node.js/npm install needed)
+# Day 12 — PromptFoo eval via Docker (self-contained)
 #
-# Run from this directory:
-#   docker compose run --rm promptfoo eval
-#   docker compose run --rm promptfoo view --port 15500   # then open http://localhost:15500
+# Two services so a single command runs everything — no manual host steps:
+#   - agent:     the real ADK TravelBot behind an HTTP server (built from
+#                agent.Dockerfile; day12 code is mounted, not copied)
+#   - promptfoo: the official promptfoo image, runs the eval against the agent
 #
-# The official promptfoo image is Node-only — it has no google-adk/litellm
-# installed, so provider.py (which imports ../agent.py) can't run on its
-# bundled Python. Instead of reinstalling this repo's heavy deps inside the
-# container, we mount the repo's existing virtualenv and put it first on
-# PATH, so the python3 promptfoo's python provider shells out to resolves
-# to the venv's interpreter (with google-adk/litellm already installed)
-# rather than the container's own. Run `pip install -r ../requirements.txt`
-# from the repo-root .venv first if you haven't already.
+# Run:
+#   docker compose run --rm promptfoo          # builds agent if needed, runs eval
 #
-# Needs OPENROUTER_API_KEY in ../.env — used both by the agent under test
-# and by the llm-rubric grader.
+# (`run` starts the `agent` dependency automatically and waits for it to be
+# healthy. The first run builds the agent image, which pip-installs google-adk.)
+#
+# Results UI instead of a one-shot eval:
+#   docker compose run --rm --service-ports promptfoo promptfoo view -y --host 0.0.0.0 --port 15500
+#
+# Why a separate agent service: the promptfoo image is Node + Alpine with no
+# google-adk, so it can't run the agent in-process. The agent runs in its own
+# Python container and promptfoo reaches it at http://agent:8930 over the
+# compose network (see promptfooconfig.docker.yaml).
 
 services:
-  promptfoo:
-    image: ghcr.io/promptfoo/promptfoo:latest
-    working_dir: /app
+  agent:
+    build:
+      context: ..
+      dockerfile: promptfoo/agent.Dockerfile
+    image: day12-agent:latest
+    working_dir: /day12
     volumes:
-      - .:/app
-      - ../../../..:/repo-root   # mounts the google-adk repo root, incl. .venv/
-    environment:
-      - PATH=/repo-root/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - ..:/day12          # day12 code (agent.py, serve_agent.py, .env, ...)
     env_file:
       - ../.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8930/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  promptfoo:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    working_dir: /work
+    volumes:
+      - .:/work
+    env_file:
+      - ../.env
+    depends_on:
+      agent:
+        condition: service_healthy
+    restart: "no"
     ports:
       - "15500:15500"
+    command: ["promptfoo", "eval", "-c", "promptfooconfig.docker.yaml", "--no-progress-bar"]

@@ -1,0 +1,143 @@
+{
+  "eval_set_id": "travelbot_day12",
+  "name": "TravelBot Day 12 eval set",
+  "description": "Routing, budget honesty, cancellation policy, scope, error handling.",
+  "eval_cases": [
+    {
+      "eval_id": "routing_booking_no_ref",
+      "conversation": [
+        {
+          "invocation_id": "t1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Where is my booking?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I can help with that. What is your booking reference or booking ID? Please provide it so I can look up your booking."
+              }
+            ],
+            "role": "model"
+          },
+          "creation_timestamp": 1781851707.9120965
+        }
+      ],
+      "creation_timestamp": 1781851707.9119163,
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "budget_paris_search",
+      "conversation": [
+        {
+          "invocation_id": "t1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Search flights from London to Paris and show me every option under £500."
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I found two direct economy flights from London to Paris under £500: TB-210 at £180 and TB-212 at £240, each about 1.5 hours."
+              }
+            ],
+            "role": "model"
+          },
+          "creation_timestamp": 1781851707.9122262
+        }
+      ],
+      "creation_timestamp": 1781851707.9121308,
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "cancellation_policy",
+      "conversation": [
+        {
+          "invocation_id": "t1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "What's your cancellation policy?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Flights are refundable up to 24 hours before departure for a 10% service fee. Within 24 hours fares are non-refundable but can be changed for a $75 change fee plus any fare difference."
+              }
+            ],
+            "role": "model"
+          },
+          "creation_timestamp": 1781851707.912318
+        }
+      ],
+      "creation_timestamp": 1781851707.9122455,
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "out_of_scope_weather",
+      "conversation": [
+        {
+          "invocation_id": "t1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "What's the weather like in Tokyo?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "That's outside what TravelBot can help with — I handle travel booking and planning. Is there a travel request I can help with instead?"
+              }
+            ],
+            "role": "model"
+          },
+          "creation_timestamp": 1781851707.912397
+        }
+      ],
+      "creation_timestamp": 1781851707.9123323,
+      "final_session_state": {}
+    },
+    {
+      "eval_id": "invalid_booking_id",
+      "conversation": [
+        {
+          "invocation_id": "t1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Check booking XYZ-99999"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I couldn't find a booking matching the reference XYZ-99999. Please double-check the reference; the format looks like LON-TOK-901."
+              }
+            ],
+            "role": "model"
+          },
+          "creation_timestamp": 1781851707.9124637
+        }
+      ],
+      "creation_timestamp": 1781851707.9124098,
+      "final_session_state": {}
+    }
+  ],
+  "creation_timestamp": 1781851707.912477
+}
