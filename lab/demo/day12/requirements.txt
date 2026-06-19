@@ -1,0 +1,17 @@
+# Day 12 — Reasoning Loops, Observability, and Evaluation
+#
+# Install:  pip install -r requirements.txt
+# Run:      python demo.py                       (scripted scenarios + REPL)
+#           chainlit run chainlit_app.py -w       (UI with reasoning panel)
+#           cd promptfoo && npx promptfoo@latest eval   (eval suite, needs Node.js)
+
+# ── Agent (Google ADK, same as previous days) ────────────────────────────────
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
+
+# ── Observability ─────────────────────────────────────────────────────────────
+langsmith==0.8.17
+
+# ── UI with collapsible "Agent Reasoning" panel ───────────────────────────────
+chainlit==2.11.1

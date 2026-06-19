@@ -1,0 +1,31 @@
+# Day 12 — PromptFoo eval suite via Docker (no local Node.js/npm install needed)
+#
+# Run from this directory:
+#   docker compose run --rm promptfoo eval
+#   docker compose run --rm promptfoo view --port 15500   # then open http://localhost:15500
+#
+# The official promptfoo image is Node-only — it has no google-adk/litellm
+# installed, so provider.py (which imports ../agent.py) can't run on its
+# bundled Python. Instead of reinstalling this repo's heavy deps inside the
+# container, we mount the repo's existing virtualenv and put it first on
+# PATH, so the python3 promptfoo's python provider shells out to resolves
+# to the venv's interpreter (with google-adk/litellm already installed)
+# rather than the container's own. Run `pip install -r ../requirements.txt`
+# from the repo-root .venv first if you haven't already.
+#
+# Needs OPENROUTER_API_KEY in ../.env — used both by the agent under test
+# and by the llm-rubric grader.
+
+services:
+  promptfoo:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ../../../..:/repo-root   # mounts the google-adk repo root, incl. .venv/
+    environment:
+      - PATH=/repo-root/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    env_file:
+      - ../.env
+    ports:
+      - "15500:15500"

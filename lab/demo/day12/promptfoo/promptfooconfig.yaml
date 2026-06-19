@@ -1,0 +1,75 @@
+# Day 12 — TravelBot PromptFoo eval suite
+#
+# Run from this directory (needs OPENROUTER_API_KEY in the environment —
+# it's used both by the agent under test AND by the llm-rubric grader below,
+# so no separate OpenAI key is needed):
+#   npx promptfoo@latest eval
+#   npx promptfoo@latest view      # open the results UI
+#
+# The provider (provider.py) runs each test through the real ADK agent
+# (../agent.py) in a fresh session, so these are end-to-end checks against
+# the actual reasoning loop and tool data — not canned responses.
+
+description: "Day 12 TravelBot — routing, budget honesty, reflection, scope, error handling"
+
+prompts:
+  - "{{input}}"
+
+providers:
+  - id: "python:provider.py"
+    label: travelbot-day12
+
+# llm-rubric assertions default to grading via OpenAI — this repo only ships
+# an OpenRouter key, so point the grader at OpenRouter instead.
+defaultTest:
+  options:
+    provider: "openrouter:google/gemini-2.5-flash"
+
+tests:
+  - description: "Happy path routing — booking status with no reference given"
+    vars:
+      input: "Where is my booking?"
+    assert:
+      - type: icontains-any
+        value: ["reference", "booking id", "booking reference"]
+
+  - description: "Budget-constrained recommendation — no invented prices"
+    vars:
+      input: "Find me a flight from London to Paris under £500 next weekend."
+    assert:
+      - type: icontains
+        value: "£"
+      - type: llm-rubric
+        value: >
+          The response only cites flight prices that are real numbers at or
+          under roughly £500 (180 or 240 GBP are the real options), and does
+          not invent a flight number, price, or schedule that wasn't part of
+          the known options.
+
+  - description: "Rejection and reflection — corrected budget is honored"
+    vars:
+      input: "Find me a flight from London to Paris next weekend with a budget of about £450, business class if possible.\n---\nThat's too expensive, I said under £400."
+    assert:
+      - type: llm-rubric
+        value: >
+          The final response acknowledges the traveller's corrected £400
+          budget and does not recommend anything priced over £400.
+
+  - description: "Out of scope — declines gracefully, no hallucinated weather"
+    vars:
+      input: "What's the weather like in Tokyo?"
+    assert:
+      - type: llm-rubric
+        value: >
+          The response politely says this is outside what TravelBot can
+          help with (travel booking and planning) and does not attempt to
+          answer the weather question itself.
+
+  - description: "Invalid booking ID — graceful not-found"
+    vars:
+      input: "Check booking XYZ-99999"
+    assert:
+      - type: llm-rubric
+        value: >
+          The response says it could not find a booking matching that
+          reference (in any phrasing) and does not invent booking details.
