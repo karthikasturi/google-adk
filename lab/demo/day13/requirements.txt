@@ -1,0 +1,14 @@
+# Day 13 — Guardrails & Production Readiness
+#
+# Targets the latest Google ADK at the time of writing (2.3.0).
+#
+# Install:  pip install -r requirements.txt
+# Run:      python demo.py                  (five guardrail scenarios)
+#           chainlit run chainlit_app.py -w  (UI with guardrail indicators)
+
+google-adk==2.3.0
+litellm>=1.85
+python-dotenv==1.2.2
+
+# UI with per-domain chat profiles + guardrail "intercepted" indicator
+chainlit==2.11.1
