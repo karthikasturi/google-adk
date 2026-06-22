@@ -11,6 +11,6 @@
 # you install this file. Re-pin with `pip install litellm==1.86.2` afterwards
 # if you want the base version back (the eval path also works on 1.86.2).
 
-google-adk[eval]==2.1.0          # AgentEvaluator + eval metrics (pulls vertexai, rouge, pandas)
+google-adk[eval]==2.3.0          # AgentEvaluator + eval metrics (pulls vertexai, rouge, pandas)
 opentelemetry-sdk>=1.41          # OpenTelemetry tracer provider
 opentelemetry-exporter-otlp>=1.41  # OTLP exporter → LangSmith OTel endpoint

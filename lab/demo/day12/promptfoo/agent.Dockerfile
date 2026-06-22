@@ -10,7 +10,7 @@ FROM python:3.12-slim
 
 # Deps for the agent + the HTTP server. Pinned to match the day12 venv.
 RUN pip install --no-cache-dir \
-        google-adk==2.1.0 \
+        google-adk==2.3.0 \
         litellm==1.86.2 \
         python-dotenv==1.2.2 \
         "fastapi>=0.115" \

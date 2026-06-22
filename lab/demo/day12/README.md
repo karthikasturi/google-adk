@@ -56,10 +56,9 @@ npx promptfoo@latest view            # open the results UI
 
 **Option B — Docker (self-contained, no host setup).** The official promptfoo
 image is Node-only (Alpine) with no `google-adk` installed, so it can't run
-the agent in-process. The compose file therefore has **two** services — the
-agent (its own small Python image, built from `agent.Dockerfile`) and
-promptfoo — wired together over the compose network. One command runs
-everything:
+the agent in-process. The compose file therefore has an `agent` service (its
+own small Python image, built from `agent.Dockerfile`) plus `promptfoo` and
+`viewer` services. Run the eval:
 
 ```bash
 cd promptfoo
@@ -68,14 +67,22 @@ docker compose run --rm promptfoo
 
 `run` builds the agent image on first use (it pip-installs `google-adk`),
 starts the `agent` service, waits for its healthcheck, then runs the eval
-(`promptfooconfig.docker.yaml`) against `http://agent:8930`. For the results
-UI instead of a one-shot eval:
+(`promptfooconfig.docker.yaml`) against `http://agent:8930`. Results persist in
+the `promptfoo-data` named volume.
+
+For the results UI, use the dedicated `viewer` service (it publishes the port
+and reads the persisted results) — then open http://localhost:15500:
 
 ```bash
-docker compose run --rm --service-ports promptfoo promptfoo view -y --host 0.0.0.0 --port 15500
+docker compose up viewer        # Ctrl-C when done
 ```
 
-Clean up the agent service afterwards with `docker compose down`.
+Clean up everything afterwards with `docker compose down`.
+
+> Don't run `docker compose run --rm promptfoo view ...` for the UI — `run`
+> doesn't publish ports, so the server starts but isn't reachable. Use
+> `docker compose up viewer`. (`docker compose run --rm promptfoo <args>` is
+> still the way to run *non-UI* subcommands ad hoc.)
 
 > Two earlier failures this layout fixes: `Cannot find module
 > /app/dist/src/server/index.js` (an old compose mounted the config over the
@@ -119,7 +126,7 @@ promptfoo/
   promptfooconfig.docker.yaml  Docker path — HTTP provider → agent service
   serve_agent.py                agent HTTP server (runs inside the agent container)
   agent.Dockerfile              small Python image for the agent service
-  docker-compose.yml            two services: agent + promptfoo, self-contained
+  docker-compose.yml            services: agent + promptfoo (eval) + viewer (UI)
 
 # ── framework-native variants (added alongside; see section below) ──
 agent_native.py     same agents, but planner_specialist uses PlanReActPlanner
@@ -139,7 +146,7 @@ This demo deliberately hand-rolls the reasoning trace, the LangSmith export,
 and the eval suite so the mechanics are visible rather than hidden behind
 framework magic. ADK 2.1 ships native facilities for all three, and each one
 is now implemented **alongside** the hand-rolled version so trainees can run
-both and compare. Verified against the installed `google-adk==2.1.0`:
+both and compare. Verified against `google-adk==2.3.0`:
 
 | Concern | Hand-rolled (teaching default) | ADK-native variant (added alongside) |
 |---|---|---|
@@ -184,4 +191,6 @@ are there to show what the framework does for you once the concepts land.
 - **`OPENROUTER_API_KEY is not set`** → put your key in `.env`
 - **No traces in LangSmith** → check `LANGSMITH_API_KEY` is set and the key has access to `LANGSMITH_PROJECT`; the demo runs fine without it, just without export
 - **`npx promptfoo` fails to find the provider** → run `npx promptfoo@latest eval` from inside `promptfoo/`, not from `day12/`
+- **Docker: `dependency failed to start: container promptfoo-agent-1 is unhealthy`** → the agent imports google-adk + litellm (~25s) before it serves; the compose `start_period` (90s) covers this. If it still trips, the agent is failing to *start*, not just slow — check `docker compose logs agent` (usually a missing `OPENROUTER_API_KEY` in `../.env`, which makes the server exit). Force a clean rebuild with `docker compose build --no-cache agent`.
+- **Docker: results UI not reachable / `Cannot find module '/work/view'`** → use `docker compose up viewer` (not `docker compose run … view`), then open http://localhost:15500
 - **Chainlit reasoning panel is empty** → check the agent actually called a tool for that prompt; pure routing/refusal turns may have zero action/observation steps

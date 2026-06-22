@@ -1,23 +1,27 @@
 # Day 12 — PromptFoo eval via Docker (self-contained)
 #
-# Two services so a single command runs everything — no manual host steps:
-#   - agent:     the real ADK TravelBot behind an HTTP server (built from
-#                agent.Dockerfile; day12 code is mounted, not copied)
+# Three usable commands — no manual host steps:
+#
+#   docker compose run --rm promptfoo        # run the eval (default)
+#   docker compose run --rm promptfoo view   # ad-hoc: any promptfoo subcommand
+#   docker compose up viewer                 # results UI at http://localhost:15500
+#                                            # (Ctrl-C then `docker compose down`)
+#
+# Services:
+#   - agent:     the real ADK TravelBot behind an HTTP server (agent.Dockerfile;
+#                day12 code is mounted, not copied)
 #   - promptfoo: the official promptfoo image, runs the eval against the agent
+#   - viewer:    the promptfoo results UI (same image), reads persisted results
 #
-# Run:
-#   docker compose run --rm promptfoo          # builds agent if needed, runs eval
-#
-# (`run` starts the `agent` dependency automatically and waits for it to be
-# healthy. The first run builds the agent image, which pip-installs google-adk.)
-#
-# Results UI instead of a one-shot eval:
-#   docker compose run --rm --service-ports promptfoo promptfoo view -y --host 0.0.0.0 --port 15500
-#
-# Why a separate agent service: the promptfoo image is Node + Alpine with no
-# google-adk, so it can't run the agent in-process. The agent runs in its own
-# Python container and promptfoo reaches it at http://agent:8930 over the
-# compose network (see promptfooconfig.docker.yaml).
+# Key points (these fix two earlier footguns):
+#   - entrypoint is `promptfoo`, so `docker compose run --rm promptfoo <args>`
+#     passes <args> straight to the CLI. Without this, `run ... view` replaced
+#     the whole command and the image's wrapper ran `node view` →
+#     "Cannot find module '/work/view'".
+#   - eval results live in the `promptfoo-data` named volume mounted at the
+#     container user's own config dir (/home/promptfoo/.promptfoo), so they
+#     persist and the `viewer` service can read what `promptfoo` wrote. (A host
+#     bind mount there fails: the non-root container user can't write it.)
 
 services:
   agent:
@@ -27,27 +31,48 @@ services:
     image: day12-agent:latest
     working_dir: /day12
     volumes:
-      - ..:/day12          # day12 code (agent.py, serve_agent.py, .env, ...)
+      - ..:/day12
     env_file:
       - ../.env
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8930/health')"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
-      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      # The agent imports google-adk + litellm before it can serve, which takes
+      # ~25s (longer on a cold/slow machine). A generous start_period keeps it
+      # in "starting" (not "unhealthy") during that import, so promptfoo's
+      # depends_on doesn't fail with "container ... is unhealthy".
+      start_period: 90s
 
   promptfoo:
     image: ghcr.io/promptfoo/promptfoo:latest
+    entrypoint: ["promptfoo"]
     working_dir: /work
     volumes:
       - .:/work
+      - promptfoo-data:/home/promptfoo/.promptfoo
     env_file:
       - ../.env
     depends_on:
       agent:
         condition: service_healthy
     restart: "no"
+    command: ["eval", "-c", "promptfooconfig.docker.yaml", "--no-progress-bar"]
+
+  # Results UI. Run AFTER an eval: `docker compose up viewer` → localhost:15500
+  viewer:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    entrypoint: ["promptfoo"]
+    working_dir: /work
+    volumes:
+      - .:/work
+      - promptfoo-data:/home/promptfoo/.promptfoo
+    env_file:
+      - ../.env
     ports:
       - "15500:15500"
-    command: ["promptfoo", "eval", "-c", "promptfooconfig.docker.yaml", "--no-progress-bar"]
+    command: ["view", "-y", "--port", "15500"]
+
+volumes:
+  promptfoo-data:
