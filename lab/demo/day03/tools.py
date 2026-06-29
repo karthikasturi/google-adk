@@ -6,9 +6,9 @@ ADK auto-generates the JSON schema from these — no decorator needed.
 
 Tool context usage:
   get_flight_status  — writes last_flight_checked to session state.
-  search_hotels      — writes destination and last_search_city to session state.
+  search_hotels      — writes destination (raw city input) to session state.
   save_traveler_name — writes traveler_name to session state (state write only).
-  get_trip_summary   — reads all state keys and returns a structured summary.
+  get_trip_summary   — reads traveler_name, destination, last_flight_checked from state.
 
 Passed directly to LlmAgent(tools=[...]) in agent.py.
 """
