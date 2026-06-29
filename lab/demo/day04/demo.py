@@ -41,7 +41,6 @@ from db import check_connection as pg_ok
 from history import get_history, record_turn
 from redis_client import (
     check_connection as redis_ok,
-    load_session_ref,
     load_session_state,
     save_session_state,
 )
@@ -216,10 +215,8 @@ async def run_scenarios(runner, user_id: str, session_id: str) -> None:
     else:
         print("  Redis: no snapshot found (Redis may be down — continuing with DB).\n")
 
-    print("  [Restarting runner with the same session_id...]\n")
-    _, _, _ = await make_runner(aria, user_id=user_id, session_id=session_id)
-
     # Reconnect using the same IDs — state comes from PostgreSQL
+    print("  [Restarting runner with the same session_id...]\n")
     runner2, _, _ = await make_runner(aria, user_id=user_id, session_id=session_id)
 
     prompt = "What do you know about my current booking?"
