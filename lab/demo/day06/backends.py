@@ -138,12 +138,33 @@ class OpenSearchBackend:
             # Serverless assigns the _id itself (see _ensure_index).
             body = {"chunk_id": doc_id, "text": text, "embedding": embedding, **meta}
             if self._serverless:
-                self._client.index(index=self._index, body=body)
+                self._index_with_retry(body)
             else:
                 self._client.index(index=self._index, id=doc_id, body=body, refresh=True)
 
         if self._serverless:
             self._wait_until_searchable(expected=len(ids))
+
+    def _index_with_retry(self, body: dict, timeout: float = 60.0, poll_interval: float = 5.0) -> None:
+        """
+        The propagation lag documented in `_wait_until_searchable` also bites
+        the *write* path, not just search: right after `_ensure_index` drops
+        and recreates the index, the very first write or two can fail with a
+        404 ("no such index") or a transient 500, even though
+        `indices.create` already returned success. Retry rather than letting
+        one unlucky write fail the whole startup load.
+        """
+        from opensearchpy.exceptions import TransportError
+
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                self._client.index(index=self._index, body=body)
+                return
+            except TransportError as e:
+                if e.status_code not in (404, 500) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(poll_interval)
 
     def _wait_until_searchable(self, expected: int, timeout: float = 180.0, poll_interval: float = 5.0) -> None:
         """
