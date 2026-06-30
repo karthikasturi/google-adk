@@ -84,11 +84,14 @@ async def _ask(
     prompt: str,
     *,
     record: bool = True,
+    state_delta: dict | None = None,
 ) -> str:
     """
     Send a prompt to the agent and return its reply.
     Optionally records both turns to PostgreSQL history and
     snapshots the session state to Redis after each exchange.
+    state_delta: optional state to inject at the start of the turn (used by
+    scenario 6 to restore session state from the Redis snapshot on first run).
     """
     reply = ""
     tool_events: list[dict] = []
@@ -97,6 +100,7 @@ async def _ask(
         user_id=user_id,
         session_id=session_id,
         new_message=_build_message(prompt),
+        state_delta=state_delta,
     ):
         # Collect tool call info for history logging
         if event.content and event.content.parts:
@@ -215,12 +219,15 @@ async def run_scenarios(runner, user_id: str, session_id: str) -> None:
     else:
         print("  Redis: no snapshot found (Redis may be down — continuing with DB).\n")
 
-    # Reconnect using the same IDs — state comes from PostgreSQL
+    # Reconnect using the same IDs. On the first run the ADK session state may
+    # not yet be visible to a brand-new DatabaseSessionService instance, so we
+    # also inject the Redis snapshot as state_delta — exactly the role Redis is
+    # designed to fill: fast working-memory recovery after a restart.
     print("  [Restarting runner with the same session_id...]\n")
     runner2, _, _ = await make_runner(aria, user_id=user_id, session_id=session_id)
 
     prompt = "What do you know about my current booking?"
-    reply = await _ask(runner2, user_id, session_id, prompt)
+    reply = await _ask(runner2, user_id, session_id, prompt, state_delta=cached)
     _show("S6", prompt, reply)
 
     # ── Print durable conversation history from PostgreSQL ─────────────────

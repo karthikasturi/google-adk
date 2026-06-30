@@ -33,17 +33,28 @@ def get_booking_status(
 ) -> dict[str, Any]:
     """
     Look up a booking by ID and return its current status.
+    If booking_id is "current" or empty, the ID saved in session state is used
+    (e.g. "What do you know about my current booking?" after an earlier lookup).
     Saves current_booking_id and current_passenger to session state so
     follow-up questions don't need to repeat the booking reference.
 
     Args:
-        booking_id: The booking reference, e.g. "TB-1001".
+        booking_id: The booking reference, e.g. "TB-1001", or "current" to
+            use the booking already established in this session.
 
     Returns:
         A dict with booking details, or an error dict if not found.
     """
+    # Resolve "current" shorthand from session state — mirrors cancel_booking,
+    # so the model can use the same pattern for both tools.
+    if not booking_id or booking_id.strip().lower() in ("", "current"):
+        booking_id = tool_context.state.get("current_booking_id", "")
+
     if not booking_id or not booking_id.strip():
-        return {"found": False, "error": "Booking ID cannot be empty."}
+        return {
+            "found": False,
+            "error": "No booking ID provided or found in this session. Please specify a booking reference.",
+        }
 
     bid = booking_id.strip().upper()
     try:
