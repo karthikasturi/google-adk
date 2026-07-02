@@ -33,7 +33,7 @@ BACKUP_MODEL = "openrouter/openai/gpt-4o-mini"       # cross-provider fallback
 routing_log: list[dict] = []
 
 
-def _on_success(kwargs, completion_response, start_time, end_time) -> None:
+async def _on_success(kwargs, completion_response, start_time, end_time) -> None:
     model = (
         kwargs.get("litellm_params", {}).get("model")
         or kwargs.get("model", "unknown")
@@ -42,7 +42,7 @@ def _on_success(kwargs, completion_response, start_time, end_time) -> None:
     routing_log.append({"status": "success", "model": model, "latency_ms": ms})
 
 
-def _on_failure(kwargs, completion_response, start_time, end_time) -> None:
+async def _on_failure(kwargs, completion_response, start_time, end_time) -> None:
     model = (
         kwargs.get("litellm_params", {}).get("model")
         or kwargs.get("model", "unknown")
@@ -57,6 +57,10 @@ def _on_failure(kwargs, completion_response, start_time, end_time) -> None:
 
 def enable_routing_callbacks() -> None:
     """Attach routing event callbacks to litellm. Call once at startup."""
+    if not isinstance(getattr(litellm, "success_callback", None), list):
+        litellm.success_callback = []
+    if not isinstance(getattr(litellm, "failure_callback", None), list):
+        litellm.failure_callback = []
     if _on_success not in litellm.success_callback:
         litellm.success_callback.append(_on_success)
     if _on_failure not in litellm.failure_callback:
@@ -120,7 +124,7 @@ timeout_demo_router = _make_router(
 # ── Query classifier ───────────────────────────────────────────────────────
 
 _PLANNING_SIGNALS = {
-    "plan", "itinerary", "7-day", "10-day", "3-week", "5-day",
+    "plan", "itinerary", "7-day", "10-day", "3-week", " ",
     "day-by-day", "sequence of cities", "compare", "budget trip",
     "days", "week", "cities",
 }
