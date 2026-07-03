@@ -98,13 +98,24 @@ response and its routing headers.
 
 ## Gateway config reference (`litellm_config.yaml`)
 
-| Model group | Primary | Fallback | Purpose |
-|---|---|---|---|
-| `fast-faq` | `openrouter/google/gemini-2.5-flash` | — | Scenario 1A |
-| `deep-planning` | `openrouter/google/gemini-2.5-pro` | — | Scenario 1B |
-| `backup` | `openrouter/openai/gpt-4o-mini` | — | Fallback target for the two groups below |
-| `fallback-demo` | `openrouter/google/bad-model-xyz` (doesn't exist) | `backup` | Scenario 2A / 3A |
-| `timeout-demo` | `openrouter/google/gemini-2.5-pro`, `timeout: 0.001` | `backup` | Scenario 2B |
+`fast-faq` and `deep-planning` are each a **pool** of deployments sharing one
+`model_name` — the gateway load-balances across them
+(`router_settings.routing_strategy: simple-shuffle`) and automatically
+retries a different pool member if one errors, before ever reaching the
+explicit fallback groups below.
+
+| Model group | Deployments (`model_info.id`) | Purpose |
+|---|---|---|
+| `fast-faq` | `fast-faq-gemini-flash`, `fast-faq-gemini-flash-lite`, `fast-faq-claude-haiku`, `fast-faq-gpt-4o-mini`, `fast-faq-gpt-4.1-mini` | Scenario 1A — low-latency pool, one model per provider |
+| `deep-planning` | `deep-planning-gemini-pro`, `deep-planning-claude-sonnet`, `deep-planning-gpt-5` | Scenario 1B — flagship reasoning pool, one model per provider |
+| `backup` | `backup-gpt-4o-mini` | Fallback target for the two groups below |
+| `fallback-demo` | `fallback-demo-bad-model` (doesn't exist) → falls back to `backup` | Scenario 2A / 3A |
+| `timeout-demo` | `timeout-demo-primary`, `timeout: 0.001` → falls back to `backup` | Scenario 2B |
+
+Every deployment sets `model_info.id` to a readable name, so the
+`x-litellm-model-id` response header (surfaced as `deployment_id` in the
+demo's routing events) says exactly which pool member handled a request
+instead of an opaque hash.
 
 `litellm_settings.num_retries`, `allowed_fails`, and `cooldown_time` apply
 gateway-wide — tune them in one place instead of per client.

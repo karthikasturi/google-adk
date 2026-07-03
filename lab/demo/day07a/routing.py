@@ -41,9 +41,19 @@ TIMEOUT_DEMO_GROUP = "timeout-demo"
 
 # Human-readable labels for the scenario printouts — the *real* model
 # strings only exist in litellm_config.yaml now, so these are descriptions,
-# not values the app depends on.
-FAST_MODEL_LABEL = "openrouter/google/gemini-2.5-flash  (gateway group: fast-faq)"
-DEEP_MODEL_LABEL = "openrouter/google/gemini-2.5-pro  (gateway group: deep-planning)"
+# not values the app depends on. Each of fast-faq/deep-planning is a pool of
+# multiple deployments (one per provider); the gateway load-balances across
+# them (router_settings.routing_strategy) and picks a different one per
+# request, so the label lists the whole pool rather than one fixed model.
+FAST_MODEL_LABEL = (
+    "gateway group: fast-faq  — load-balanced pool of "
+    "gemini-2.5-flash, gemini-2.5-flash-lite, claude-haiku-4.5, "
+    "gpt-4o-mini, gpt-4.1-mini"
+)
+DEEP_MODEL_LABEL = (
+    "gateway group: deep-planning  — load-balanced pool of "
+    "gemini-2.5-pro, claude-sonnet-5, gpt-5"
+)
 BACKUP_MODEL_LABEL = "openrouter/openai/gpt-4o-mini  (gateway group: backup)"
 
 

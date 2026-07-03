@@ -6,36 +6,110 @@
 # "fast-faq") and never knows which underlying model served the request.
 #
 # Model groups:
-#   fast-faq       → lower-latency model, optimised for FAQ-style answers
-#   deep-planning  → stronger model for multi-step itinerary planning
-#   backup         → cross-provider fallback target for both demo groups below
+#   fast-faq       → pool of low-latency models (one per provider) for
+#                    FAQ-style answers. Multiple deployments share this
+#                    model_name, so the gateway load-balances across them
+#                    (router_settings.routing_strategy below) *and* gets
+#                    automatic cross-provider failover for free: if one
+#                    deployment errors, num_retries below lets the router
+#                    retry against a different deployment in the same pool.
+#   deep-planning  → same pattern, one flagship reasoning model per provider.
+#   backup         → cross-provider fallback target for the two demo groups below
 #   fallback-demo  → primary is a non-existent model (error → fallback)
 #   timeout-demo   → primary has a near-zero timeout (timeout → fallback)
+#
+# Every deployment gets an explicit model_info.id so that the
+# x-litellm-model-id response header names the deployment in plain text
+# (e.g. "fast-faq-claude-haiku") instead of an opaque hash — that's how
+# routing.call_gateway() reports which pool member actually answered.
 #
 # Restart the container after editing this file:
 #   docker compose restart litellm
 
 model_list:
+  # ── fast-faq pool: low-latency, low-cost models, one per provider ────────
   - model_name: fast-faq
     litellm_params:
       model: openrouter/google/gemini-2.5-flash
       api_key: os.environ/OPENROUTER_API_KEY
       api_base: https://openrouter.ai/api/v1
       timeout: 30
+    model_info:
+      id: fast-faq-gemini-flash
 
+  - model_name: fast-faq
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash-lite
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+    model_info:
+      id: fast-faq-gemini-flash-lite
+
+  - model_name: fast-faq
+    litellm_params:
+      model: openrouter/anthropic/claude-haiku-4.5
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+    model_info:
+      id: fast-faq-claude-haiku
+
+  - model_name: fast-faq
+    litellm_params:
+      model: openrouter/openai/gpt-4o-mini
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+    model_info:
+      id: fast-faq-gpt-4o-mini
+
+  - model_name: fast-faq
+    litellm_params:
+      model: openrouter/openai/gpt-4.1-mini
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+    model_info:
+      id: fast-faq-gpt-4.1-mini
+
+  # ── deep-planning pool: one flagship reasoning model per provider ────────
   - model_name: deep-planning
     litellm_params:
       model: openrouter/google/gemini-2.5-pro
       api_key: os.environ/OPENROUTER_API_KEY
       api_base: https://openrouter.ai/api/v1
-      timeout: 30
+      timeout: 60
+    model_info:
+      id: deep-planning-gemini-pro
 
+  - model_name: deep-planning
+    litellm_params:
+      model: openrouter/anthropic/claude-sonnet-5
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 60
+    model_info:
+      id: deep-planning-claude-sonnet
+
+  - model_name: deep-planning
+    litellm_params:
+      model: openrouter/openai/gpt-5
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 60
+    model_info:
+      id: deep-planning-gpt-5
+
+  # ── fallback target + resilience-demo groups (unchanged pattern) ─────────
   - model_name: backup
     litellm_params:
       model: openrouter/openai/gpt-4o-mini
       api_key: os.environ/OPENROUTER_API_KEY
       api_base: https://openrouter.ai/api/v1
       timeout: 30
+    model_info:
+      id: backup-gpt-4o-mini
 
   # Scenario 2A: primary model name does not exist → provider error → fallback
   - model_name: fallback-demo
@@ -43,6 +117,8 @@ model_list:
       model: openrouter/google/bad-model-xyz
       api_key: os.environ/OPENROUTER_API_KEY
       api_base: https://openrouter.ai/api/v1
+    model_info:
+      id: fallback-demo-bad-model
 
   # Scenario 2B: near-zero timeout on primary → Timeout exception → fallback
   - model_name: timeout-demo
@@ -51,6 +127,15 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
       api_base: https://openrouter.ai/api/v1
       timeout: 0.001   # guaranteed timeout — shows fallback reliably
+    model_info:
+      id: timeout-demo-primary
+
+router_settings:
+  # Default is already "simple-shuffle" (weighted random) — spelled out here
+  # so the load-balancing behaviour across fast-faq/deep-planning isn't an
+  # invisible default. Swap to "least-busy" or "latency-based-routing" to
+  # see a different pool-selection strategy without touching Python.
+  routing_strategy: simple-shuffle
 
 litellm_settings:
   fallbacks:

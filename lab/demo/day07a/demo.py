@@ -11,6 +11,16 @@ model group ("fast-faq", "deep-planning", ...) over HTTP. Retries, timeouts,
 and fallback chains are gateway config now; changing them is a YAML edit +
 `docker compose restart litellm`, not a Python change.
 
+Both fast-faq and deep-planning are pools of multiple deployments — one
+low-latency model per provider for fast-faq (Gemini Flash/Flash-Lite,
+Claude Haiku, GPT-4o-mini/4.1-mini), one flagship reasoning model per
+provider for deep-planning (Gemini Pro, Claude Sonnet, GPT-5). The gateway
+load-balances across a pool's deployments (router_settings.routing_strategy)
+and, as a side effect, gets automatic cross-provider failover within the
+pool for free — if one deployment errors, num_retries lets it retry a
+*different* deployment in the same group before ever reaching the explicit
+fallback groups below.
+
 One consequence worth watching for in the scenario output: this process no
 longer sees the *intermediate* failure when a primary model errors out —
 the proxy retries/falls back internally and only the final HTTP response
@@ -184,6 +194,27 @@ async def _gateway_ask(model_group: str, prompt: str) -> dict:
     return await call_gateway(model_group, messages)
 
 
+async def _pool_probe(model_group: str, label: str, rounds: int = 5) -> None:
+    """
+    Fire a handful of trivial requests directly at the gateway (bypassing
+    ADK) so the x-litellm-model-id header can show *which* pool member
+    answered each one. Not part of the agent flow — just proof that
+    router_settings.routing_strategy is actually spreading load across the
+    providers configured in litellm_config.yaml, which the ADK-based
+    scenario above can't show on its own.
+    """
+    print(f"  [pool check] {rounds} quick direct calls to {label} (not through ADK):")
+    events = await asyncio.gather(
+        *[_gateway_ask(model_group, "Reply with just the word: ready.") for _ in range(rounds)]
+    )
+    seen = set()
+    for i, ev in enumerate(events, start=1):
+        model_id = ev.get("model_id") or "unknown"
+        seen.add(model_id)
+        print(f"    call {i}: deployment_id={model_id}  latency={ev['latency_ms']}ms")
+    print(f"  → {len(seen)} distinct pool member(s) answered across {rounds} calls.\n")
+
+
 # ── Scripted scenarios ─────────────────────────────────────────────────────
 
 
@@ -191,8 +222,9 @@ async def scenario_1a_faq_routing(faq_runner, faq_user, faq_session) -> None:
     _sep()
     print("  Scenario 1A — FAQ routing (fast-faq model group)")
     _sep()
-    print(f"\n  Route: fast-faq  →  model: {FAST_MODEL_LABEL}")
-    print("  Short, factual queries — optimised for latency and cost.\n")
+    print("\n  Route: fast-faq")
+    print(_wrap(FAST_MODEL_LABEL))
+    print("\n  Short, factual queries — optimised for latency and cost.\n")
 
     prompts = [
         "What is your baggage allowance for domestic flights within India?",
@@ -213,16 +245,21 @@ async def scenario_1a_faq_routing(faq_runner, faq_user, faq_session) -> None:
         "  Notice: all three queries hit the fast-faq group. Latency is low\n"
         "  and token counts are small — the right trade-off for FAQ traffic.\n"
         "  No agent code changed to produce this routing — it's a model_name\n"
-        "  entry in litellm_config.yaml.\n"
+        "  entry in litellm_config.yaml. The ADK agent only sees its own\n"
+        "  replies though — it has no visibility into *which* pool member\n"
+        "  answered each turn. The probe below bypasses ADK to show that.\n"
     )
+
+    await _pool_probe(FAST_FAQ_GROUP, "aria_faq's fast-faq pool")
 
 
 async def scenario_1b_planning_routing(plan_runner, plan_user, plan_session) -> None:
     _sep()
     print("  Scenario 1B — Itinerary planning routing (deep-planning model group)")
     _sep()
-    print(f"\n  Route: deep-planning  →  model: {DEEP_MODEL_LABEL}")
-    print("  Multi-step queries that need structured, longer reasoning.\n")
+    print("\n  Route: deep-planning")
+    print(_wrap(DEEP_MODEL_LABEL))
+    print("\n  Multi-step queries that need structured, longer reasoning.\n")
 
     prompts = [
         "Plan a 10-day trip to Japan for two adults and one child, starting from Bengaluru in October, with a mix of cities and one day at an onsen.",
@@ -245,7 +282,11 @@ async def scenario_1b_planning_routing(plan_runner, plan_user, plan_session) -> 
         "  Notice: the deep-planning group was chosen automatically — higher\n"
         "  latency and token usage are expected and acceptable for itinerary\n"
         "  quality. The agent is unaware of the routing decision, and unaware\n"
-        "  that a gateway container is even involved.\n"
+        "  that a gateway container is even involved. Like fast-faq, this is a\n"
+        "  multi-provider pool — skipping a live pool-member probe here since\n"
+        "  each flagship reasoning model costs real time and money; watch\n"
+        "  `docker compose logs -f litellm` while this scenario runs if you\n"
+        "  want to see the gateway's per-request pool pick.\n"
     )
 
 
