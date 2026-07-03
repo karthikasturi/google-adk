@@ -28,18 +28,20 @@ DEEP_MODEL   = "openrouter/google/gemini-2.5-pro"    # stronger reasoning, highe
 BACKUP_MODEL = "openrouter/openai/gpt-4o-mini"       # cross-provider fallback
 
 # ── Routing event capture ──────────────────────────────────────────────────
-# demo.py clears this list before each scenario and reads it afterwards
-# to print the gateway routing decisions (model chosen, latency, errors).
+# demo.py clears this list before each scenario/prompt and reads it
+# afterwards to print the gateway routing decisions (model chosen, latency,
+# errors).
+#
+# Only FAILURE events are captured here via a litellm callback — litellm
+# awaits the failure callback inline, synchronously, before the exception
+# propagates, so it's a reliable source of truth for "primary attempt
+# failed" (info the caller can't otherwise see, since Router swallows it
+# internally before falling back). SUCCESS events are appended directly by
+# the caller in demo.py instead: litellm defers success-callback execution
+# to a background task with no guarantee it completes before acompletion()
+# returns, which in practice showed up as SUCCESS entries missing or
+# attributed to the wrong prompt.
 routing_log: list[dict] = []
-
-
-async def _on_success(kwargs, completion_response, start_time, end_time) -> None:
-    model = (
-        kwargs.get("litellm_params", {}).get("model")
-        or kwargs.get("model", "unknown")
-    )
-    ms = round((end_time - start_time).total_seconds() * 1000)
-    routing_log.append({"status": "success", "model": model, "latency_ms": ms})
 
 
 async def _on_failure(kwargs, completion_response, start_time, end_time) -> None:
@@ -56,13 +58,9 @@ async def _on_failure(kwargs, completion_response, start_time, end_time) -> None
 
 
 def enable_routing_callbacks() -> None:
-    """Attach routing event callbacks to litellm. Call once at startup."""
-    if not isinstance(getattr(litellm, "success_callback", None), list):
-        litellm.success_callback = []
+    """Attach the failure routing callback to litellm. Call once at startup."""
     if not isinstance(getattr(litellm, "failure_callback", None), list):
         litellm.failure_callback = []
-    if _on_success not in litellm.success_callback:
-        litellm.success_callback.append(_on_success)
     if _on_failure not in litellm.failure_callback:
         litellm.failure_callback.append(_on_failure)
 
@@ -124,7 +122,7 @@ timeout_demo_router = _make_router(
 # ── Query classifier ───────────────────────────────────────────────────────
 
 _PLANNING_SIGNALS = {
-    "plan", "itinerary", "7-day", "10-day", "3-week", " ",
+    "plan", "itinerary", "7-day", "10-day", "3-week", "5-day",
     "day-by-day", "sequence of cities", "compare", "budget trip",
     "days", "week", "cities",
 }

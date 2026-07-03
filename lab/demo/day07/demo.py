@@ -23,6 +23,7 @@ import logging
 import os
 import sys
 import textwrap
+import time
 
 from dotenv import load_dotenv
 from google.genai import types
@@ -95,9 +96,21 @@ def _print_routing_events(events: list[dict]) -> None:
 
 # ── ADK ask helper ─────────────────────────────────────────────────────────
 
+# SUCCESS events are recorded here at the call site, not via a litellm
+# success_callback. LiteLLM defers success-callback execution to a
+# background task/executor with no guarantee it completes before
+# acompletion() returns — even awaiting a fixed delay afterwards is a race
+# (it fires *eventually*, just not on any bounded schedule), which showed
+# up as routing_log entries missing or attributed to the wrong prompt.
+# FAILURE events don't have this problem: litellm awaits the failure
+# callback inline, synchronously, before the exception propagates — so
+# failure_callback (routing._on_failure) stays the source of truth for
+# those.
 
-async def _ask(runner, user_id: str, session_id: str, prompt: str) -> str:
+
+async def _ask(runner, user_id: str, session_id: str, prompt: str, model: str) -> str:
     reply = ""
+    start = time.monotonic()
     async for event in runner.run_async(
         user_id=user_id,
         session_id=session_id,
@@ -106,6 +119,8 @@ async def _ask(runner, user_id: str, session_id: str, prompt: str) -> str:
         if event.is_final_response():
             if event.content and event.content.parts:
                 reply = event.content.parts[0].text or ""
+    latency_ms = round((time.monotonic() - start) * 1000)
+    routing_log.append({"status": "success", "model": model, "latency_ms": latency_ms})
     return reply.strip()
 
 
@@ -122,8 +137,13 @@ async def _router_ask(router, prompt: str) -> str:
         {"role": "system", "content": "You are Aria, TravelBot's friendly travel assistant. Keep answers concise."},
         {"role": "user",   "content": prompt},
     ]
+    start = time.monotonic()
     try:
         response = await router.acompletion(model="primary", messages=messages)
+        latency_ms = round((time.monotonic() - start) * 1000)
+        # response.model reflects whichever deployment actually served the
+        # request (backup, after a primary failure/timeout + fallback).
+        routing_log.append({"status": "success", "model": response.model, "latency_ms": latency_ms})
         return (response.choices[0].message.content or "").strip()
     except Exception as exc:
         return f"[error after all retries: {exc}]"
@@ -149,7 +169,7 @@ async def scenario_1a_faq_routing(faq_runner, faq_user, faq_session) -> None:
         route = classify_query(prompt)
         print(f"  classify_query → {route}")
         print(f"  You: {prompt}\n")
-        reply = await _ask(faq_runner, faq_user, faq_session, prompt)
+        reply = await _ask(faq_runner, faq_user, faq_session, prompt, FAST_MODEL)
         print("  [aria_faq]")
         print(_wrap(reply))
         _print_routing_events(routing_log)
@@ -179,7 +199,7 @@ async def scenario_1b_planning_routing(plan_runner, plan_user, plan_session) -> 
         print(f"  classify_query → {route}")
         short_prompt = textwrap.shorten(prompt, width=70, placeholder="...")
         print(f"  You: {short_prompt}\n")
-        reply = await _ask(plan_runner, plan_user, plan_session, prompt)
+        reply = await _ask(plan_runner, plan_user, plan_session, prompt, DEEP_MODEL)
         # Trim long planning responses for demo readability
         short_reply = textwrap.shorten(reply, width=300, placeholder=" ...")
         print("  [aria_planning]")
@@ -311,10 +331,10 @@ async def run_repl(
         routing_log.clear()
         route = classify_query(prompt)
         if route == "fast-faq":
-            reply = await _ask(faq_runner, faq_user, faq_session, prompt)
+            reply = await _ask(faq_runner, faq_user, faq_session, prompt, FAST_MODEL)
             label = "aria_faq"
         else:
-            reply = await _ask(plan_runner, plan_user, plan_session, prompt)
+            reply = await _ask(plan_runner, plan_user, plan_session, prompt, DEEP_MODEL)
             label = "aria_planning"
 
         print(f"\n  [route: {route}]")
