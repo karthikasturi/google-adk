@@ -1,0 +1,66 @@
+# litellm_config.yaml — routing + fallback rules for the Day 07a gateway
+# ============================================================================
+# This is the single source of truth for routing decisions. Everything that
+# used to live in routing.py's litellm.Router (day07) now lives here instead
+# — application code only ever asks for a model *group name* (e.g.
+# "fast-faq") and never knows which underlying model served the request.
+#
+# Model groups:
+#   fast-faq       → lower-latency model, optimised for FAQ-style answers
+#   deep-planning  → stronger model for multi-step itinerary planning
+#   backup         → cross-provider fallback target for both demo groups below
+#   fallback-demo  → primary is a non-existent model (error → fallback)
+#   timeout-demo   → primary has a near-zero timeout (timeout → fallback)
+#
+# Restart the container after editing this file:
+#   docker compose restart litellm
+
+model_list:
+  - model_name: fast-faq
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+
+  - model_name: deep-planning
+    litellm_params:
+      model: openrouter/google/gemini-2.5-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+
+  - model_name: backup
+    litellm_params:
+      model: openrouter/openai/gpt-4o-mini
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 30
+
+  # Scenario 2A: primary model name does not exist → provider error → fallback
+  - model_name: fallback-demo
+    litellm_params:
+      model: openrouter/google/bad-model-xyz
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+
+  # Scenario 2B: near-zero timeout on primary → Timeout exception → fallback
+  - model_name: timeout-demo
+    litellm_params:
+      model: openrouter/google/gemini-2.5-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+      timeout: 0.001   # guaranteed timeout — shows fallback reliably
+
+litellm_settings:
+  fallbacks:
+    - fallback-demo: ["backup"]
+    - timeout-demo: ["backup"]
+  num_retries: 1
+  allowed_fails: 1
+  cooldown_time: 5
+  request_timeout: 30
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

@@ -1,0 +1,12 @@
+# Day 07a Demo — Python dependencies
+# Routing and fallback via a standalone LiteLLM gateway (Docker) with Google ADK.
+# The `litellm` package here is just an OpenAI-compatible HTTP client pointed
+# at the gateway container — no Router, no routing config client-side.
+#
+# Install:  pip install -r requirements.txt
+# Run:      docker compose up -d   (start the gateway first)
+#           python demo.py
+
+google-adk==2.1.0
+litellm==1.86.2
+python-dotenv==1.2.2
